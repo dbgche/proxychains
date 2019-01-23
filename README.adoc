@@ -2,4 +2,6 @@
 
 forked from https://github.com/haad/proxychains
 
+Remember: grant everyone full permission to the libproxychains4.so file in case you hit permission issue.
+
 Enjoy.
