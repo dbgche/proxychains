@@ -742,7 +742,6 @@ struct hostent *proxy_gethostbyname(const char *name, struct gethostbyname_data*
 	// yep, new_mem never gets freed. once you passed a fake ip to the client, you can't "retreat" it
 	void *new_mem;
 	size_t l;
-	struct hostent *hp;
 
 	data->resolved_addr_p[0] = (char *) &data->resolved_addr;
 	data->resolved_addr_p[1] = NULL;
@@ -768,9 +767,12 @@ struct hostent *proxy_gethostbyname(const char *name, struct gethostbyname_data*
 
 	memset(buff, 0, sizeof(buff));
 
+#if !defined(__CYGWIN__)
+	struct hostent *hp;
 	while((hp = gethostent()))
 		if(!strcmp(hp->h_name, name))
 			return hp;
+#endif
 
 	hash = dalias_hash((char *) name);
 

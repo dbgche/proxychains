@@ -78,7 +78,13 @@ static void simple_socks5_env(proxy_data * pd, unsigned int *proxy_count, chain_
 
 static void* load_sym(char* symname, void* proxyfunc) {
 
+	#if !defined(__CYGWIN__)
 	void *funcptr = dlsym(RTLD_NEXT, symname);
+	#else
+	//true_connect = (connect_t) __real_connect;
+	void *funcptr = (void*)cygwin_internal(CW_HOOK, symname, proxyfunc);
+	#endif
+	//void *funcptr = dlsym(RTLD_NEXT, symname);
 	if(!funcptr) {
 		fprintf(stderr, "Cannot load symbol '%s' %s\n", symname, dlerror());
 		exit(1);
@@ -92,9 +98,28 @@ static void* load_sym(char* symname, void* proxyfunc) {
 	return funcptr;
 }
 
+// #ifdef __CYGWIN__
+// #include <sys/cygwin.h>
+
+// __attribute__((constructor))
+// void _init(void)
+// {
+// 	cygwin_internal(CW_HOOK, "connect", __wrap_connect);
+// 	cygwin_internal(CW_HOOK, "gethostbyname", __wrap_gethostbyname);
+// 	cygwin_internal(CW_HOOK, "getaddrinfo", __wrap_getaddrinfo);
+// 	cygwin_internal(CW_HOOK, "freeaddrinfo", __wrap_freeaddrinfo);
+// 	cygwin_internal(CW_HOOK, "getnameinfo", __wrap_getnameinfo);
+// 	cygwin_internal(CW_HOOK, "gethostbyaddr", __wrap_gethostbyaddr);
+// }
+// #endif
+
 #define INIT() init_lib_wrapper(__FUNCTION__)
 
+#if !defined(__CYGWIN__)
 #define SETUP_SYM(X) do { true_ ## X = load_sym( # X, X ); } while(0)
+#else
+#define SETUP_SYM(X) do { true_ ## X = load_sym( # X, __wrap_ ## X  ); } while(0)
+#endif
 
 static void do_init(void) {
 	MUTEX_INIT(&internal_ips_lock, NULL);
@@ -336,7 +361,13 @@ static void simple_socks5_env(proxy_data *pd, unsigned int *proxy_count, chain_t
 
 /*******  HOOK FUNCTIONS  *******/
 
-int connect(int sock, const struct sockaddr *addr, socklen_t len) {
+//int connect(int sock, const struct sockaddr *addr, socklen_t len) {
+#if defined(__CYGWIN__)
+int __wrap_connect (int sock, const struct sockaddr *addr, unsigned int len)
+#else
+int connect (int sock, const struct sockaddr *addr, unsigned int len)
+#endif	
+{
 	int socktype = 0, flags = 0, ret = 0;
 	socklen_t optlen = 0;
 	ip_type dest_ip;
@@ -395,7 +426,13 @@ int connect(int sock, const struct sockaddr *addr, socklen_t len) {
 }
 
 static struct gethostbyname_data ghbndata;
-struct hostent *gethostbyname(const char *name) {
+//struct hostent *gethostbyname(const char *name) {
+#if defined(__CYGWIN__)
+struct hostent *__wrap_gethostbyname(const char *name)
+#else
+struct hostent *gethostbyname(const char *name)
+#endif
+{
 	INIT();
 
 	PDEBUG("gethostbyname: %s\n", name);
@@ -408,7 +445,17 @@ struct hostent *gethostbyname(const char *name) {
 	return NULL;
 }
 
-int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res) {
+//int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res) {
+#if defined(__CYGWIN__)
+int __wrap_getaddrinfo(const char *node, const char *service,
+		const struct addrinfo *hints,
+		struct addrinfo **res)
+#else
+int getaddrinfo(const char *node, const char *service,
+		const struct addrinfo *hints,
+		struct addrinfo **res)
+#endif
+{
 	int ret = 0;
 
 	INIT();
@@ -423,7 +470,13 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 	return ret;
 }
 
-void freeaddrinfo(struct addrinfo *res) {
+//void freeaddrinfo(struct addrinfo *res) {
+#if defined(__CYGWIN__)
+void __wrap_freeaddrinfo(struct addrinfo *res)
+#else
+void freeaddrinfo(struct addrinfo *res)
+#endif
+{
 	INIT();
 
 	PDEBUG("freeaddrinfo %p \n", res);
@@ -435,6 +488,21 @@ void freeaddrinfo(struct addrinfo *res) {
 	return;
 }
 
+// // work around a buggy prototype in GLIBC. according to the bugtracker it has been fixed in git at 02 May 2011.
+// // 2.14 came out in June 2011 so that should be the first fixed version
+// #if defined(__GLIBC__) && (__GLIBC__ < 3) && (__GLIBC_MINOR__ < 14)
+// int getnameinfo(const struct sockaddr *sa,
+// 		socklen_t salen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, unsigned int flags)
+// #else
+// int getnameinfo(const struct sockaddr *sa,
+// 		socklen_t salen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags)
+// #endif
+#if defined(__CYGWIN__)
+int __wrap_getnameinfo (const struct sockaddr * sa,
+			socklen_t salen, char * host,
+			socklen_t hostlen, char * serv,
+			socklen_t servlen, unsigned int flags)
+#else
 // work around a buggy prototype in GLIBC. according to the bugtracker it has been fixed in git at 02 May 2011.
 // 2.14 came out in June 2011 so that should be the first fixed version
 #if defined(__GLIBC__) && (__GLIBC__ < 3) && (__GLIBC_MINOR__ < 14)
@@ -443,6 +511,7 @@ int getnameinfo(const struct sockaddr *sa,
 #else
 int getnameinfo(const struct sockaddr *sa,
 		socklen_t salen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags)
+#endif
 #endif
 {
 	char ip_buf[16];
@@ -465,11 +534,22 @@ int getnameinfo(const struct sockaddr *sa,
 	return ret;
 }
 
-#if (defined __linux__) || (defined __APPLE__)
-struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type) {
+// #if (defined __linux__) || (defined __APPLE__)
+// struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type) {
+// #else
+// struct hostent *gethostbyaddr(const char *addr, socklen_t len, int type) {
+// #endif
+#if defined(__CYGWIN__)
+struct hostent *__wrap_gethostbyaddr (const void *addr, socklen_t len,
+		                                      int type)
 #else
-struct hostent *gethostbyaddr(const char *addr, socklen_t len, int type) {
+#if (defined __linux__) || (defined __APPLE__)
+struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type) 
+#else
+struct hostent *gethostbyaddr(const char *addr, socklen_t len, int type) 
 #endif
+#endif
+{
 	static char buf[16];
 	static char ipv4[4];
 	static char *list[2];

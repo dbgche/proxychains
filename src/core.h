@@ -15,7 +15,7 @@
  ***************************************************************************/
 
 #include <stdint.h>
-
+//#define __CYGWIN__
 #ifndef __CORE_HEADER
 #define __CORE_HEADER
 #define BUFF_SIZE 8*1024  // used to read responses from proxies.
@@ -141,6 +141,21 @@ struct hostent* proxy_gethostbyname(const char *, struct gethostbyname_data *);
 void proxy_getservbyname(const char *, struct servent *, char *, size_t, struct servent **);
 int proxy_getaddrinfo(const char *, const char *, const struct addrinfo *, struct addrinfo **);
 void proxy_freeaddrinfo(struct addrinfo *);
+
+#ifdef __CYGWIN__
+#include <sys/cygwin.h>
+int __wrap_connect (int sock, const struct sockaddr *addr, unsigned int len);
+struct hostent *__wrap_gethostbyname(const char *name);
+int __wrap_getaddrinfo(const char *node, const char *service,
+		const struct addrinfo *hints,
+		struct addrinfo **res);
+void __wrap_freeaddrinfo(struct addrinfo *res);
+int __wrap_getnameinfo (const struct sockaddr * sa,
+			socklen_t salen, char * host,
+			socklen_t hostlen, char * serv,
+			socklen_t servlen, unsigned int flags);
+struct hostent *__wrap_gethostbyaddr (const void *addr, socklen_t len, int type);
+#endif	
 
 #ifdef DEBUG
 # define PDEBUG(fmt, args...) do { fprintf(stderr,"DEBUG:"fmt, ## args); fflush(stderr); } while(0)
