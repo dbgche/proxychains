@@ -287,7 +287,7 @@ static int tunnel_to(int sock, ip_type ip, unsigned short port, proxy_type pt, c
 				snprintf((char *) buff, sizeof(buff), "CONNECT %s:%d HTTP/1.0\r\n", dns_name,
 					 ntohs(port));
 
-				if(user[0]) {
+				if(ulen) {
 					// 2 * 0xff: username and pass, plus 1 for ':' and 1 for zero terminator.
 					char src[HTTP_AUTH_MAX];
 					char dst[(4 * HTTP_AUTH_MAX)];
@@ -367,7 +367,7 @@ static int tunnel_to(int sock, ip_type ip, unsigned short port, proxy_type pt, c
 			}
 			break;
 		case SOCKS5_TYPE:{
-				if(user) {
+				if(ulen) {
 					buff[0] = 5;	//version
 					buff[1] = 2;	//nomber of methods
 					buff[2] = 0;	// no auth method

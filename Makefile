@@ -19,6 +19,7 @@ LOBJS = src/core.o src/common.o src/libproxychains.o
 
 CCFLAGS  = -Wall -O2 -g -std=c99 -D_GNU_SOURCE -pipe -DTHREAD_SAFE -Werror
 LDFLAGS = -shared -fPIC
+#LDFLAGS = -static -fPIC
 INC     =
 PIC     = -fPIC
 AR      = $(CROSS_COMPILE)ar
@@ -46,13 +47,20 @@ all: $(ALL_LIBS) $(ALL_TOOLS)
 
 #install: $(ALL_LIBS:lib/%=$(DESTDIR)$(libdir)/%) $(DESTDIR)$(LDSO_PATHNAME)
 install:
-	install -d $(DESTDIR)/$(bindir) $(DESTDIR)/$(libdir) $(DESTDIR)/$(confdir) $(DESTDIR)/$(includedir)
-	install $(INSTALL_FLAGS) 755 $(ALL_TOOLS) $(DESTDIR)/$(bindir)/
-	install $(INSTALL_FLAGS) 644 $(ALL_LIBS) $(DESTDIR)/$(libdir)/
+#	install -d $(DESTDIR)/$(bindir) $(DESTDIR)/$(libdir) $(DESTDIR)/$(confdir) $(DESTDIR)/$(includedir)
+#	install $(INSTALL_FLAGS) 755 $(ALL_TOOLS) $(DESTDIR)/$(bindir)/
+#	install $(INSTALL_FLAGS) 644 $(ALL_LIBS) $(DESTDIR)/$(libdir)/
+
+	install -d $(bindir) $(libdir) $(confdir) $(includedir)
+	install $(INSTALL_FLAGS) 755 $(ALL_TOOLS) $(bindir)/
+	install $(INSTALL_FLAGS) 644 $(ALL_LIBS) $(libdir)/
+
 
 install-config:
-	install -d $(DESTDIR)/$(confdir)
-	install $(INSTALL_FLAGS) 644 src/proxychains.conf $(DESTDIR)/$(confdir)/
+#	install -d $(DESTDIR)/$(confdir)
+#	install $(INSTALL_FLAGS) 644 src/proxychains.conf $(DESTDIR)/$(confdir)/
+	install -d $(confdir)
+	install $(INSTALL_FLAGS) 644 src/proxychains.conf $(confdir)/
 
 clean:
 	rm -f $(ALL_LIBS)
